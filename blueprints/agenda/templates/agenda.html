@@ -1,0 +1,803 @@
+{% extends "base.html" %}
+{% block title %}Agenda{% endblock %}
+
+{% block body %}
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
+<div class="container-fluid mt-4 fadeInSlow">
+  <div class="row navegacao-bg">
+    <div class="col-lg-6 mb-4 d-flex fadeInUp">
+      <div class="card flex-fill">
+        <div class="card-header text-center">
+          <strong><i class="fa fa-calendar-day"></i> Navegação da Agenda</strong>
+        </div>
+        <div class="card-body">
+          <div class="d-flex flex-wrap justify-content-center align-items-center">
+            <form method="POST" style="margin-right:8px;">
+              <input type="hidden" name="acao" value="anterior">
+              <button class="btn btn-primary mb-2" type="submit">
+                <i class="fa fa-chevron-left"></i> Anterior
+              </button>
+            </form>
+            <form method="POST" class="mb-2" style="margin:0 8px;">
+              <input type="hidden" name="acao" value="go_date">
+              <label class="mr-2" style="margin-bottom:0; font-weight:500;">Data:</label>
+              <input type="date" name="data_selecionada" class="form-control"
+                style="width:170px; text-align:center; display:inline-block;"
+                value="{{ data_atual.strftime('%Y-%m-%d') }}" onChange="this.form.submit()">
+            </form>
+            <form method="POST" style="margin-left:8px;">
+              <input type="hidden" name="acao" value="proximo">
+              <button class="btn btn-primary mb-2" type="submit">
+                Próximo <i class="fa fa-chevron-right"></i>
+              </button>
+            </form>
+            <div class="btn-group ml-3 mb-2">
+              <form method="POST">
+                <input type="hidden" name="acao" value="view_1">
+                <button type="submit" class="btn btn-secondary {% if view=='1' %}active{% endif %}">
+                  1 Dia
+                </button>
+              </form>
+              <form method="POST">
+                <input type="hidden" name="acao" value="view_2">
+                <button type="submit" class="btn btn-secondary {% if view=='2' %}active{% endif %}">
+                  2 Dias
+                </button>
+              </form>
+              <form method="POST">
+                <input type="hidden" name="acao" value="view_7">
+                <button type="submit" class="btn btn-secondary {% if view=='7' %}active{% endif %}">
+                  Semana
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-4 d-flex fadeInUp">
+      <div class="card flex-fill">
+        <div class="card-header text-center">
+          <strong><i class="fa fa-edit"></i> Cadastrar Agendamento</strong>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('agenda_bp.agendar') }}">
+            <div class="form-row">
+              <div class="form-group col-md-6 col-lg-4">
+                <label>Nome do Cliente:</label>
+                <input type="text" class="form-control" name="ordem_servico" required>
+              </div>
+              <div class="form-group col-md-6 col-lg-4">
+                <label>Categoria:</label>
+                <select class="form-control" name="categoria" id="categoriaSelect" required>
+                  <option value="" disabled selected>Selecione</option>
+                  {% for cat in categorias %}
+                  <option value="{{ cat }}">{{ cat }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="form-group col-md-6 col-lg-4">
+                <label>Tipo de OS:</label>
+                <div class="input-group">
+                  <select class="form-control" name="tipo" id="tipoSelect" required>
+                    <option value="" disabled selected>Selecione</option>
+                    {% for tnome, _ in tipos_agendamento.items() %}
+                    <option value="{{ tnome }}">{{ tnome }}</option>
+                    {% endfor %}
+                  </select>
+                  <div class="input-group-append">
+                    <button type="button" class="btn btn-outline-secondary" data-toggle="modal"
+                      data-target="#addTipoModal">
+                      <i class="fa fa-plus-circle"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group col-md-6 col-lg-6">
+                <label>Data:</label>
+                <input type="date" class="form-control" name="data" id="dataInputCadastro"
+                  value="{{ data_atual.strftime('%Y-%m-%d') }}" style="text-align:center;" required>
+              </div>
+              <div class="form-group col-md-6 col-lg-6">
+                <label>Horário:</label>
+                <select class="form-control" name="slot" id="slotSelect" required>
+                  <option value="" disabled selected>Selecione Horário</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success btn-block">
+              <i class="fa fa-check"></i> Agendar
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card fadeInUp">
+    <div class="card-header text-center"><strong><i class="fa fa-table"></i> Agenda</strong></div>
+    <div class="card-body p-2 fadeInUp2">
+      <div class="table-responsive scrollable">
+        <table class="table table-sm table-bordered table-hover" id="agendaTable">
+          <colgroup>
+            <col style="width:60px;">
+            {% for dia_info in dias_semana %}
+            {% for cat in categorias %}
+            <col style="width:180px;">
+            {% endfor %}
+            {% endfor %}
+          </colgroup>
+          <thead>
+            <tr>
+              <th rowspan="2">Horários</th>
+              {% for dia_info in dias_semana %}
+              <th colspan="{{ categorias|length }}">
+                {{ dia_info.nome_dia }}<br>({{ dia_info.data.strftime('%d/%m') }})<br>
+                {% if dia_info.status == "Feriado" %}
+                <span class="badge badge-danger">Feriado</span>
+                {% elif dia_info.status == "Plantão" %}
+                <span class="badge badge-warning">Plantão</span>
+                {% elif dia_info.status == "Reuniao" %}
+                <span class="badge badge-danger">Reuniao</span>
+                {% else %}
+                <span class="badge badge-success">Normal</span>
+                {% endif %}
+                {% if dia_info.aniversario %}
+                <div><span class="badge badge-aniversario">{{ dia_info.aniversario }}</span></div>
+                {% endif %}
+              </th>
+
+              {% endfor %}
+            </tr>
+            <tr>
+              {% for _ in dias_semana %}
+              {% for cat in categorias %}
+              <th>{{ cat }}</th>
+              {% endfor %}
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for slot in slots %}
+            {% set extra_class = '' %}
+            {% if 'Intervalo' in slot %}
+            {% set extra_class = 'interval-slot' %}
+            {% endif %}
+            <tr>
+              <td class="horarios-bg text-white font-weight-bold {{ extra_class }}">
+                {{ slot }}
+              </td>
+              {% for dia_info in dias_semana %}
+              {% for cat in categorias %}
+              {% set ag = semana_agendamentos[dia_info.data.strftime('%Y-%m-%d')][slot][cat] %}
+              {% if ag.exibir and ag.ordem_servico %}
+              <td id="ag-cell-{{ ag.id }}"
+                class="{% if ag.feito %}agendamento-feito{% else %}bg-agendamento{% endif %} agendamento-cell fadeCell"
+                rowspan="{{ ag.rowspan }}" draggable="true" data-ag-id="{{ ag.id }}" data-ag-data="{{ ag.data }}"
+                data-ag-categoria="{{ cat }}" data-ag-feito="{{ 'true' if ag.feito else 'false' }}"
+                data-ag-usuario="{{ ag.usuario }}" data-ag-os="{{ ag.ordem_servico }}" data-ag-tipo="{{ ag.tipo }}"
+                data-ag-slots="{{ ag.slots_ocupados|join(',') }}">
+                <div class="cell-drag-handle">
+                  <span class="badge badge-info d-block mb-1">{{ ag.tipo }}</span>
+                  <span class="badge badge-dark d-block">{{ ag.ordem_servico }}</span>
+                  <small class="d-block font-weight-bold mt-1">
+                    Criado por: {{ ag.get("criador", ag.usuario) }}
+                  </small>
+                  {% if ag.get("reagendado_por") %}
+                  <small class="d-block">
+                    Reagendado por: {{ ag.reagendado_por }}
+                  </small>
+                  {% endif %}
+                </div>
+                <div class="text-center mt-2">
+                  <button type="button" class="resize-btn" title="Redimensionar">
+                    <i class="fa fa-arrows-alt-v"></i>
+                  </button>
+                </div>
+              </td>
+              {% elif not ag.exibir %}
+              <td style="display:none;"></td>
+              {% else %}
+              <td class="drop-slot" data-data="{{ dia_info.data.strftime('%Y-%m-%d') }}" data-categoria="{{ cat }}">
+              </td>
+              {% endif %}
+              {% endfor %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center my-3 fadeInUp">
+    <a href="{{ url_for('agenda_bp.ver_historico') }}" class="btn btn-info">
+      <i class="fa fa-history"></i> Ver Histórico de Edições
+    </a>
+  </div>
+</div>
+<div class="modal fade" id="agendamentoModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content fadeInUp">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fa fa-info-circle"></i> Detalhes do Agendamento</h5>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body bg-light">
+        <table class="table table-bordered">
+          <tr>
+            <th>OS/Cliente</th>
+            <td id="modalOs"></td>
+          </tr>
+          <tr>
+            <th>Tipo</th>
+            <td id="modalTipo"></td>
+          </tr>
+          <tr>
+            <th>Categoria</th>
+            <td id="modalCategoria"></td>
+          </tr>
+          <tr>
+            <th>Data</th>
+            <td id="modalData"></td>
+          </tr>
+          <tr>
+            <th>Horários Selecionados</th>
+            <td id="modalSlots"></td>
+          </tr>
+          <tr>
+            <th>Usuário (Criador)</th>
+            <td id="modalUsuario"></td>
+          </tr>
+          <tr>
+            <th>Feito?</th>
+            <td id="modalFeito"></td>
+          </tr>
+        </table>
+        <form id="formFeito" method="POST" action="{{ url_for('agenda_bp.marcar_feito') }}" class="mb-2">
+          <input type="hidden" name="id" id="feitoId">
+          <button type="submit" class="btn btn-success btn-block" id="feitoBtn">Feito / Desmarcar</button>
+        </form>
+        <form id="formEditar" method="POST" action="{{ url_for('agenda_bp.editar_agendamento') }}" class="mb-2">
+          <input type="hidden" name="id" id="editId">
+          <div class="form-group">
+            <label>OS/Cliente:</label>
+            <input type="text" class="form-control" name="ordem_servico" id="editOs" required>
+          </div>
+          <div class="form-group">
+            <label>Categoria:</label>
+            <select class="form-control" name="categoria" id="editCategoria" required>
+              {% for c in categorias %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tipo de OS:</label>
+            <div class="input-group">
+              <select class="form-control" name="tipo" id="editTipo" required>
+                {% for tnome, _ in tipos_agendamento.items() %}
+                <option value="{{ tnome }}">{{ tnome }}</option>
+                {% endfor %}
+              </select>
+              <div class="input-group-append">
+                <button type="button" class="btn btn-outline-secondary" data-toggle="modal" data-target="#addTipoModal">
+                  <i class="fa fa-plus-circle"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Data (dd/mm/aaaa):</label>
+            <input type="text" class="form-control" name="data" id="editData" required placeholder="dd/mm/aaaa">
+          </div>
+          <div class="form-group">
+            <label>Horário inicial:</label>
+            <select class="form-control" name="slot" id="editSlot" required>
+              <option value="" disabled selected>Selecione Horário</option>
+              {% for s in slots %}
+              {% if 'Intervalo' not in s %}
+              <option value="{{ s }}">{{ s }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa fa-save"></i> Salvar Edição
+          </button>
+        </form>
+        <form id="formRemover" method="POST" action="{{ url_for('agenda_bp.remover_agendamento') }}">
+          <input type="hidden" name="id" id="removeId">
+          <button type="submit" class="btn btn-danger btn-block">
+            <i class="fa fa-trash"></i> Remover
+          </button>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fa fa-times"></i> Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="addTipoModal" tabindex="-1" role="dialog" aria-labelledby="addTipoModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content fadeInUp2">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Criar Novo Tipo de OS</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span>&times;</span>
+        </button>
+      </div>
+      <form method="POST" action="{{ url_for('agenda_bp.adicionar_tipo') }}">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="nomeTipo">Nome do Tipo</label>
+            <input type="text" name="nome" class="form-control" id="nomeTipo" required>
+          </div>
+          <div class="form-group">
+            <label for="qtdTipo">Quantidade de Horários</label>
+            <input type="number" name="qtd" class="form-control" id="qtdTipo" min="1" value="1" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">
+            <i class="fa fa-check"></i> Salvar
+          </button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fa fa-times"></i> Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div id="resizingIndicator"></div>
+<div id="selectionOverlay"></div>
+
+<script>
+  const socket = io();
+  let isResizing = false;
+  let cellBeingResized = null;
+  let dimensionStartRow = null;
+  let dimensionColIndex = null;
+  let dragData = null;
+  let lastHighlightedDragCells = [];
+  let justResized = false;
+  const resizingIndicator = document.getElementById('resizingIndicator');
+  const selectionOverlay = document.getElementById('selectionOverlay');
+
+  function showPopup(msg) {
+    document.getElementById('globalAlertModalMessage').textContent = msg;
+    $('#globalAlertModal').modal('show');
+  }
+
+  function clearDragHighlight() {
+    lastHighlightedDragCells.forEach(c => {
+      c.classList.remove('drag-hover-green', 'drag-hover-red');
+    });
+    lastHighlightedDragCells = [];
+  }
+
+  function highlightDragSlots(startRow, colIndex, neededSlots) {
+    clearDragHighlight();
+    const tbody = document.querySelector('#agendaTable tbody');
+    if (!tbody) return 'red';
+    const rows = tbody.querySelectorAll('tr');
+    let status = 'green';
+
+    for (let i = 0; i < neededSlots; i++) {
+      let rowNum = startRow + i;
+      if (rowNum < 0 || rowNum >= rows.length) {
+        status = 'red';
+        continue;
+      }
+      const tds = rows[rowNum].querySelectorAll('td, th');
+      if (colIndex < 0 || colIndex >= tds.length) {
+        status = 'red';
+        continue;
+      }
+      const cell = tds[colIndex];
+      if (!cell.classList.contains('drop-slot')) {
+        status = 'red';
+      }
+      lastHighlightedDragCells.push(cell);
+    }
+
+    lastHighlightedDragCells.forEach(cell => {
+      if (status === 'green') cell.classList.add('drag-hover-green');
+      else cell.classList.add('drag-hover-red');
+    });
+
+    return status;
+  }
+
+  function getRowIndexFromMouseY(y) {
+    const table = document.getElementById('agendaTable');
+    const rows = Array.from(table.tBodies[0].rows);
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect();
+      if (y >= rect.top && y < rect.bottom) {
+        return i;
+      }
+    }
+    if (rows.length && y < rows[0].getBoundingClientRect().top) {
+      return 0;
+    }
+    if (rows.length && y >= rows[rows.length - 1].getBoundingClientRect().bottom) {
+      return rows.length - 1;
+    }
+    return null;
+  }
+
+  function checkResizeConflict(topRow, bottomRow, colIndex, currentAgId) {
+    const table = document.getElementById('agendaTable');
+    const rows = table.tBodies[0].rows;
+    let conflict = false;
+
+    for (let i = topRow; i <= bottomRow; i++) {
+      const rowCells = rows[i].querySelectorAll('td, th');
+      if (colIndex < 0 || colIndex >= rowCells.length) continue;
+      const cell = rowCells[colIndex];
+      if (cell.classList.contains('agendamento-cell')) {
+        const cellAgId = cell.getAttribute('data-ag-id');
+        if (cellAgId && cellAgId !== currentAgId) {
+          conflict = true;
+        }
+      } else if (!cell.classList.contains('drop-slot')) {
+        conflict = true;
+      }
+    }
+    return conflict;
+  }
+
+  function fixRowOrder(a, b) {
+    return (a > b) ? [b, a] : [a, b];
+  }
+
+  function positionSelectionOverlay(topRow, bottomRow, colIndex) {
+    const table = document.getElementById('agendaTable');
+    const rows = table.tBodies[0].rows;
+    [topRow, bottomRow] = fixRowOrder(topRow, bottomRow);
+
+    if (colIndex === 0 && rows[topRow].querySelectorAll('td, th')[1]) {
+      colIndex = 1;
+    }
+
+    if (topRow >= 0 && topRow < rows.length && bottomRow >= 0 && bottomRow < rows.length) {
+      const firstRowRect = rows[topRow].cells[0].getBoundingClientRect();
+      const lastRowRect = rows[bottomRow].cells[0].getBoundingClientRect();
+      const overlayTop = Math.min(firstRowRect.top, lastRowRect.top);
+      const overlayBottom = Math.max(firstRowRect.bottom, lastRowRect.bottom);
+
+      const colCell = rows[topRow].querySelectorAll('td, th')[colIndex];
+      if (!colCell) return;
+      const colRect = colCell.getBoundingClientRect();
+      const overlayLeft = colRect.left;
+      const overlayWidth = colRect.width;
+      const overlayHeight = overlayBottom - overlayTop;
+
+      selectionOverlay.style.display = 'block';
+      selectionOverlay.style.top = `${overlayTop + window.scrollY}px`;
+      selectionOverlay.style.left = `${overlayLeft + window.scrollX}px`;
+      selectionOverlay.style.width = `${overlayWidth}px`;
+      selectionOverlay.style.height = `${overlayHeight}px`;
+    }
+  }
+
+  function atualizarTabelaAgenda() {
+    fetch(`{{ url_for('agenda_bp.agenda_main') }}`, {
+      method: 'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+      .then(response => response.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newTable = doc.getElementById('agendaTable');
+        const oldTable = document.getElementById('agendaTable');
+        if (newTable && oldTable && newTable.parentNode) {
+          oldTable.parentNode.innerHTML = newTable.parentNode.innerHTML;
+        }
+      })
+      .catch(err => {
+        showPopup('Erro ao atualizar a tabela:\n' + err);
+      });
+  }
+
+  function atualizarHorariosDisponiveis() {
+    const categoria = document.getElementById('categoriaSelect').value;
+    const tipo = document.getElementById('tipoSelect').value;
+    const data = document.getElementById('dataInputCadastro').value;
+
+    if (!categoria || !tipo || !data) return;
+
+    fetch(`/get_slots_disponiveis?data=${data}&categoria=${encodeURIComponent(categoria)}&tipo=${encodeURIComponent(tipo)}`)
+      .then(response => response.json())
+      .then(horariosDisponiveis => {
+        const slotSelect = document.getElementById('slotSelect');
+        slotSelect.innerHTML = '<option value="" disabled selected>Selecione Horário</option>';
+        horariosDisponiveis.forEach(h => {
+          const option = document.createElement('option');
+          option.value = h;
+          option.textContent = h;
+          slotSelect.appendChild(option);
+        });
+      })
+      .catch(err => {
+        showPopup('Erro ao obter horários disponíveis:\n' + err);
+      });
+  }
+
+  function isoToDmy(isoStr) {
+    if (!isoStr) return '';
+    const parts = isoStr.split('-');
+    if (parts.length !== 3) return isoStr;
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.body.addEventListener('mousedown', (e) => {
+      const btn = e.target.closest('.resize-btn');
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        cellBeingResized = e.target.closest('.agendamento-cell');
+        if (!cellBeingResized) return;
+        isResizing = true;
+        justResized = false;
+
+        const table = document.getElementById('agendaTable');
+        const row = cellBeingResized.parentNode;
+        dimensionStartRow = Array.from(table.tBodies[0].rows).indexOf(row);
+        dimensionColIndex = Array.from(row.querySelectorAll('td, th')).indexOf(cellBeingResized);
+
+        resizingIndicator.style.display = 'block';
+        resizingIndicator.textContent = '...';
+      }
+    });
+
+    document.body.addEventListener('mousemove', (e) => {
+      if (!isResizing || !cellBeingResized) return;
+      const currentRowIndex = getRowIndexFromMouseY(e.clientY);
+      if (currentRowIndex === null) return;
+
+      const table = document.getElementById('agendaTable');
+      const rows = table.tBodies[0].rows;
+      for (let r = 0; r < rows.length; r++) {
+        const rowCells = rows[r].querySelectorAll('td, th');
+        for (let c = 0; c < rowCells.length; c++) {
+          rowCells[c].classList.remove('dim-hover');
+        }
+      }
+
+      let topRow = dimensionStartRow;
+      let bottomRow = currentRowIndex;
+      [topRow, bottomRow] = fixRowOrder(topRow, bottomRow);
+      const newRowspan = (bottomRow - topRow) + 1;
+
+      for (let i = topRow; i <= bottomRow; i++) {
+        if (i >= 0 && i < rows.length) {
+          const rowCells = rows[i].querySelectorAll('td, th');
+          if (dimensionColIndex >= 0 && dimensionColIndex < rowCells.length) {
+            rowCells[dimensionColIndex].classList.add('dim-hover');
+          }
+        }
+      }
+
+      positionSelectionOverlay(topRow, bottomRow, dimensionColIndex);
+
+      const slotStart = rows[topRow].querySelectorAll('td, th')[0].textContent.trim();
+      const slotEnd = rows[bottomRow].querySelectorAll('td, th')[0].textContent.trim();
+      const currentAgId = cellBeingResized.getAttribute('data-ag-id');
+      const conflict = checkResizeConflict(topRow, bottomRow, dimensionColIndex, currentAgId);
+
+      resizingIndicator.style.left = (e.pageX + 10) + 'px';
+      resizingIndicator.style.top = (e.pageY + 10) + 'px';
+      resizingIndicator.textContent = slotStart + ' - ' + slotEnd;
+
+      if (conflict) {
+        resizingIndicator.style.backgroundColor = '#ffc107';
+        resizingIndicator.style.color = '#fff';
+        selectionOverlay.style.borderColor = '#ffc107';
+        selectionOverlay.style.backgroundColor = 'rgba(255, 193, 7, 0.2)';
+      } else {
+        resizingIndicator.style.backgroundColor = '#ffc107';
+        resizingIndicator.style.color = '#fff';
+        selectionOverlay.style.borderColor = '#ffc107';
+        selectionOverlay.style.backgroundColor = 'rgba(255, 193, 7, 0.2)';
+      }
+    });
+
+    document.body.addEventListener('mouseup', (e) => {
+      if (isResizing && cellBeingResized) {
+        const table = document.getElementById('agendaTable');
+        const rows = table.tBodies[0].rows;
+        const currentRowIndex = getRowIndexFromMouseY(e.clientY);
+        if (currentRowIndex !== null) {
+          let topRow = dimensionStartRow;
+          let bottomRow = currentRowIndex;
+          [topRow, bottomRow] = fixRowOrder(topRow, bottomRow);
+          let newRowspan = (bottomRow - topRow) + 1;
+          if (newRowspan < 1) newRowspan = 1;
+
+          const agId = cellBeingResized.getAttribute('data-ag-id');
+
+          for (let r = 0; r < rows.length; r++) {
+            const rowCells = rows[r].querySelectorAll('td, th');
+            for (let c = 0; c < rowCells.length; c++) {
+              rowCells[c].classList.remove('dim-hover');
+            }
+          }
+          resizingIndicator.style.display = 'none';
+          selectionOverlay.style.display = 'none';
+
+          fetch(`{{ url_for('agenda_bp.redimensionar_slots') }}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: agId, nova_qtd_slots: newRowspan })
+          })
+            .then(res => res.json())
+            .then(resp => {
+              showPopup(resp.message);
+            })
+            .catch(err => {
+              showPopup('Erro ao redimensionar.\n' + err);
+            });
+        }
+        justResized = true;
+        setTimeout(() => { justResized = false; }, 200);
+      }
+      isResizing = false;
+      cellBeingResized = null;
+      dimensionStartRow = null;
+      dimensionColIndex = null;
+    });
+
+    document.body.addEventListener('dragstart', (e) => {
+      const resizeBtn = e.target.closest('.resize-btn');
+      if (resizeBtn) {
+        e.preventDefault();
+        return;
+      }
+      const cell = e.target.closest('.agendamento-cell');
+      if (cell) {
+        const rowSpan = parseInt(cell.getAttribute('rowspan') || '1');
+        dragData = {
+          id: cell.getAttribute('data-ag-id'),
+          tipo: cell.getAttribute('data-ag-tipo'),
+          categoria: cell.getAttribute('data-ag-categoria'),
+          slotsCount: rowSpan
+        };
+        e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+        e.dataTransfer.effectAllowed = 'move';
+      }
+    });
+
+    document.body.addEventListener('dragover', (e) => {
+      const dropSlot = e.target.closest('.drop-slot');
+      if (dropSlot && dragData) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const table = document.getElementById('agendaTable');
+        const rowIndex = Array.from(table.tBodies[0].rows).indexOf(dropSlot.parentNode);
+        const colIndex = Array.from(dropSlot.parentNode.querySelectorAll('td, th')).indexOf(dropSlot);
+        highlightDragSlots(rowIndex, colIndex, dragData.slotsCount);
+      }
+    });
+
+    document.body.addEventListener('dragleave', (e) => {
+      const dropSlot = e.target.closest('.drop-slot');
+      if (dropSlot) {
+        clearDragHighlight();
+      }
+    });
+
+    document.body.addEventListener('drop', (e) => {
+      const dropSlot = e.target.closest('.drop-slot');
+      if (dropSlot) {
+        e.preventDefault();
+        clearDragHighlight();
+        const dt = e.dataTransfer.getData('application/json');
+        if (!dt) return;
+        const parsed = JSON.parse(dt);
+        const nova_data = dropSlot.getAttribute('data-data');
+        const categoria = dropSlot.getAttribute('data-categoria');
+        const slot_inicial = dropSlot.parentNode.querySelector('td').textContent.trim();
+        if (!parsed.tipo) {
+          showPopup('Tipo não encontrado.');
+          return;
+        }
+        fetch(`{{ url_for('agenda_bp.reagendar') }}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: parsed.id,
+            nova_data,
+            novo_slot: slot_inicial,
+            categoria,
+            tipo: parsed.tipo
+          })
+        })
+          .then(r => r.json())
+          .then(resp => {
+            showPopup(resp.message);
+          })
+          .catch(err => {
+            showPopup('Erro ao reagendar.\n' + err);
+          });
+      }
+    });
+
+    socket.on('inserir-agendamento', () => atualizarTabelaAgenda());
+    socket.on('remover-agendamento', () => atualizarTabelaAgenda());
+    socket.on('atualizar-agendamento', () => atualizarTabelaAgenda());
+
+    document.getElementById('categoriaSelect').addEventListener('change', atualizarHorariosDisponiveis);
+    document.getElementById('tipoSelect').addEventListener('change', atualizarHorariosDisponiveis);
+
+    const dataCadastro = document.getElementById('dataInputCadastro');
+    if (dataCadastro) {
+      dataCadastro.addEventListener('change', () => {
+        atualizarHorariosDisponiveis();
+      });
+    }
+
+    document.body.addEventListener('click', (e) => {
+      if (isResizing || justResized) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      const cell = e.target.closest('.agendamento-cell');
+      if (cell) {
+        const agId = cell.getAttribute('data-ag-id');
+        const agData = cell.getAttribute('data-ag-data');
+        const agCat = cell.getAttribute('data-ag-categoria');
+        const agFeito = (cell.getAttribute('data-ag-feito') === 'true');
+        const agUser = cell.getAttribute('data-ag-usuario');
+        const agOs = cell.getAttribute('data-ag-os');
+        const agTipo = cell.getAttribute('data-ag-tipo');
+        const agSlots = cell.getAttribute('data-ag-slots');
+
+        document.getElementById('modalOs').textContent = agOs;
+        document.getElementById('modalTipo').textContent = agTipo;
+        document.getElementById('modalCategoria').textContent = agCat;
+        document.getElementById('modalData').textContent = isoToDmy(agData);
+        document.getElementById('modalSlots').textContent = agSlots;
+        document.getElementById('modalUsuario').textContent = agUser;
+        document.getElementById('modalFeito').textContent = agFeito ? 'Sim' : 'Não';
+
+        document.getElementById('feitoId').value = agId;
+        document.getElementById('feitoBtn').textContent = agFeito ? 'Desmarcar Feito' : 'Marcar como Feito';
+
+        document.getElementById('editId').value = agId;
+        document.getElementById('editOs').value = agOs;
+        document.getElementById('editCategoria').value = agCat;
+        document.getElementById('editTipo').value = agTipo;
+        document.getElementById('editData').value = isoToDmy(agData);
+
+        if (agSlots) {
+          const firstSlot = agSlots.split(',')[0].trim();
+          document.getElementById('editSlot').value = firstSlot;
+        }
+        document.getElementById('removeId').value = agId;
+
+        $('#agendamentoModal').modal('show');
+      }
+    });
+
+    document.getElementById('formEditar').addEventListener('submit', (e) => {
+      const edt = document.getElementById('editData');
+      if (!edt.value) return;
+      const parts = edt.value.split('/');
+      if (parts.length === 3) {
+      }
+    });
+  });
+</script>
+
+{% endblock %}

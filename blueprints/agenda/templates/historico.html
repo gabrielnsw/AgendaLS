@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Histórico{% endblock %}
+
+{% block body %}
+<div class="container mt-4 fadeInSlow">
+  <h3><i class="fa fa-history"></i> Histórico de Edições</h3>
+
+  <div class="mb-3">
+    <h5>Visualizar por mês:</h5>
+    {% for ano_mes in lista_meses %}
+      <a class="btn btn-outline-info mb-1" href="{{ url_for('agenda_bp.historico_mes', ano=ano_mes[0], mes=ano_mes[1]) }}">
+        {{ ano_mes[1] }}/{{ ano_mes[0] }}
+      </a>
+    {% endfor %}
+  </div>
+
+  {% if ano is defined and mes is defined %}
+  <form method="GET" class="mb-3">
+    <div class="input-group" style="max-width:300px;">
+      <input type="text" name="q" class="form-control" placeholder="Pesquisar..." value="{{ search_q|default('') }}">
+      <div class="input-group-append">
+        <button class="btn btn-info" type="submit"><i class="fa fa-search"></i></button>
+      </div>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if historico_global %}
+  <table class="table table-sm table-bordered table-striped mt-3">
+    <thead>
+      <tr>
+        <th>ID do Agendamento</th>
+        <th>Ordem de Serviço</th>
+        <th>Data/Hora</th>
+        <th>Usuário</th>
+        <th>Ação / Mudanças</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for entry in historico_global %}
+      <tr>
+        <td>{{ entry.agendamento_id }}</td>
+        <td>{{ entry.ordem_servico }}</td>
+        <td>{{ entry.data_hora|formato_datahora }}</td>
+        <td>{{ entry.usuario }}</td>
+        <td>
+          {% if entry.acao %}
+          {{ entry.acao }}
+          {% endif %}
+          {% if entry.mudancas %}
+          <ul class="mb-0">
+          {% for chave, val in entry.mudancas.items() %}
+            <li>{{ chave }}: "<strong>{{ val.antigo }}</strong>" → "<strong>{{ val.novo }}</strong>"</li>
+          {% endfor %}
+          </ul>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p>Nenhum histórico encontrado.</p>
+  {% endif %}
+</div>
+{% endblock %}

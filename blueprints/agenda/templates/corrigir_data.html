@@ -1,0 +1,25 @@
+<!-- /AgendaLS/blueprints/agenda/templates/corrigir_data.html -->
+{% extends "base.html" %}
+{% block title %}Corrigir Data{% endblock %}
+{% block body %}
+<div class="container mt-4">
+    <h2>Corrigir Status de Data</h2>
+    <form method="POST">
+        <div class="form-group">
+            <label>Data:</label>
+            <input type="date" name="data" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label>Status desejado:</label>
+            <select name="status" class="form-control" required>
+                <option value="" disabled selected>Selecione</option>
+                <option value="normal">Normal</option>
+                <option value="feriado">Feriado</option>
+                <option value="plantao">Plantão</option>
+                <option value="reuniao">Reuniao</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success">Atualizar Status</button>
+    </form>
+</div>
+{% endblock %}

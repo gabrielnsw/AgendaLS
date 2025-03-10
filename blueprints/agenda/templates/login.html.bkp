@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block body %}
+<div class="container mt-4 fadeInSlow">
+    <h2><i class="fa fa-sign-in-alt"></i> Login</h2>
+    <form method="POST">
+        <div class="form-group">
+            <label><i class="fa fa-user"></i> Usuário:</label>
+            <input type="text" name="username" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label><i class="fa fa-key"></i> Senha:</label>
+            <input type="password" name="password" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa fa-sign-in-alt"></i> Entrar</button>
+    </form>
+</div>
+{% endblock %}

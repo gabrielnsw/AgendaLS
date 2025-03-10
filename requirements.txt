@@ -1,0 +1,6 @@
+Flask
+Flask-Login
+requests
+Flask-SocketIO
+gunicorn
+eventlet

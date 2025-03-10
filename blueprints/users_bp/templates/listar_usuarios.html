@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Lista de Usuários{% endblock %}
+
+{% block body %}
+<div class="container mt-4 fadeInSlow">
+    <h2><i class="fa fa-users"></i> Lista de Usuários</h2>
+    <a href="{{ url_for('users_bp.criar_usuario') }}" class="btn btn-primary mb-3"><i class="fa fa-plus"></i> Criar Novo Usuário</a>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Nome Completo</th>
+                <th>Tipo Usuário</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for nome, dados in usuarios.items() %}
+            <tr>
+                <td>{{ nome }}</td>
+                <td>{{ dados.nome_completo }}</td>
+                <td>{{ dados.tipo_usuario }}</td>
+                <td>
+                  <form method="POST" action="{{ url_for('users_bp.remover_usuario') }}" onsubmit="return confirm('Remover usuário {{nome}}?');">
+                    <input type="hidden" name="username" value="{{ nome }}">
+                    <button type="submit" class="btn btn-sm btn-danger"><i class="fa fa-trash"></i></button>
+                  </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+# Ignorar ambientes virtuais
+venv/
+
+# Ignorar arquivos e pastas de dados
+data/
+*.json
+
+# Ignorar arquivos compilados e cache
+__pycache__/
+*.pyc

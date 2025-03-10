@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block body %}
+<style>
+  .login-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--background-color);
+  }
+  .login-card {
+    background: var(--light-text-color);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    animation: fadeIn 0.8s ease-out;
+  }
+  .login-title {
+    text-align: center;
+    margin-bottom: 30px;
+    color: var(--primary-color);
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .login-input {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 15px;
+    font-size: 1rem;
+  }
+  .btn-login {
+    background-color: var(--primary-color);
+    color: var(--light-text-color);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 1.1rem;
+    width: 100%;
+    transition: background-color 0.3s, transform 0.3s;
+  }
+  .btn-login:hover {
+    background-color: #4e10d8;
+    transform: translateY(-2px);
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<div class="login-wrapper">
+  <div class="login-card">
+    <h2 class="login-title"><i class="fa fa-sign-in-alt"></i> Login</h2>
+    <form method="POST">
+      <div class="form-group">
+        <input type="text" name="username" class="form-control login-input" placeholder="Usuário" required>
+      </div>
+      <div class="form-group">
+        <input type="password" name="password" class="form-control login-input" placeholder="Senha" required>
+      </div>
+      <button type="submit" class="btn btn-login">Entrar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
